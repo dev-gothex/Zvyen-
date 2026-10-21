@@ -7,6 +7,7 @@ from discord.ext import commands
 
 from utils.emojis import icon
 from utils.ui import component_card, panel
+from utils.owner_permissions import owner_or_guild_permissions
 
 
 def normalize_mentions(text: str) -> str:
@@ -25,7 +26,7 @@ class AutoReact(commands.Cog):
 
     @autoreact.command(name="add", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def add(self, ctx: commands.Context, *, trigger_and_emoji: str):
         """Add an automatic reaction: trigger text followed by an emoji."""
         parts = trigger_and_emoji.rsplit(maxsplit=1)
@@ -55,7 +56,7 @@ class AutoReact(commands.Cog):
 
     @autoreact.command(name="remove", aliases=("delete",), case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def remove(self, ctx: commands.Context, *, trigger: str):
         """Remove an automatic reaction trigger."""
         trigger = trigger.strip()
@@ -84,7 +85,7 @@ class AutoReact(commands.Cog):
 
     @autoreact.command(name="reset", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def reset(self, ctx: commands.Context):
         """Remove all automatic reaction triggers from this server."""
         removed = await self.bot.db.clear_autoreactions(ctx.guild.id)

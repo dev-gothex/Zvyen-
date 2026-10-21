@@ -207,7 +207,7 @@ class AutoModBaseView(discord.ui.View):
         if interaction.user.id != self.requester_id and not interaction.user.guild_permissions.manage_guild:
             await interaction.response.send_message("Only the command user or a server manager can use these controls.", ephemeral=True)
             return False
-        if not interaction.user.guild_permissions.manage_guild and interaction.user.id != self.cog.bot.owner_id:
+        if not interaction.user.guild_permissions.manage_guild and not settings.is_owner(interaction.user.id):
             await interaction.response.send_message("You need **Manage Server** to configure AutoMod.", ephemeral=True)
             return False
         return True
@@ -457,7 +457,7 @@ class AutoMod(commands.Cog):
         await ctx.send(view=component_card(embed, AutoModGroupView(self, ctx.guild.id, ctx.author.id, pages, requester_name)))
 
     async def _can_manage(self, ctx: commands.Context) -> bool:
-        if ctx.author.id == self.bot.owner_id or ctx.author.guild_permissions.manage_guild:
+        if settings.is_owner(ctx.author.id) or ctx.author.guild_permissions.manage_guild:
             return True
         await ctx.reply(view=component_card(panel(f"{icon('error')} Permission Required", "You need **Manage Server** to configure AutoMod.", color=ERROR)), mention_author=False)
         return False

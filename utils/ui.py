@@ -403,9 +403,10 @@ async def send_security_access_denied(interaction: discord.Interaction, *, detai
 
 
 def owner_bypass_permissions(**required):
-    """App-command user-permission check that exempts the configured bot owner."""
+    """Let configured owners bypass user permissions only when Zyven is Administrator."""
     async def predicate(interaction: discord.Interaction) -> bool:
-        if settings.is_owner(interaction.user.id):
+        bot_member = interaction.guild.me if interaction.guild is not None else None
+        if settings.is_owner(interaction.user.id) and bot_member is not None and bot_member.guild_permissions.administrator:
             return True
         permissions = interaction.permissions
         missing = [name for name, value in required.items() if getattr(permissions, name, False) != value]

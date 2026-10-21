@@ -13,6 +13,7 @@ from discord.ext import commands
 from utils.emojis import icon
 from core.settings import settings
 from utils.ui import AntinukePunishmentMenuView, CategoryActions, EventLimitMenuView, EventLimitView, ExtraownerView, FeatureSetupView, SecurityOverviewView, antinuke_limit_menu_embed, antinuke_punishment_menu_embed, can_access_security, can_manage, category_screen, component_card, edit_original_component_card, event_limit_page_embed, extraowner_embed, followup_component_card, is_security_actor, panel, security_overview_embed, security_status_embed, send_card, send_security_access_denied, notice_panel
+from utils.owner_permissions import owner_or_guild_permissions
 
 DEFAULT_ANTI_NUKE_EVENTS = ["member_ban", "member_unban", "member_kick", "member_prune", "bot_add", "channel_create", "channel_delete", "channel_update", "role_create", "role_delete", "role_update", "role_position", "role_link_permission", "role_invite_permission", "member_update", "member_role_update", "emoji_create", "emoji_delete", "emoji_update", "sticker_create", "sticker_delete", "sticker_update", "integration_create", "integration_delete", "integration_update", "webhook_create", "webhook_spam", "webhook_delete", "webhook_update", "guild_update", "everyone_ping", "role_ping"]
 ANTINUKE_EVENT_LABELS = {
@@ -352,7 +353,7 @@ class Security(commands.Cog):
 
     @commands.hybrid_group(name="ignore", invoke_without_command=True, case_insensitive=True, description="Configure ignored commands, channels, and users")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def prefix_ignore(self, ctx: commands.Context):
         await self._send_ignore_help(ctx, "Zyven Ignore Group", [
             (f"{settings.prefix}ignore command", "Manage ignored commands in this guild."),
@@ -378,7 +379,7 @@ class Security(commands.Cog):
         await self.prefix_ignore_command(ctx)
 
     @prefix_ignore_command.command(name="add")
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def prefix_ignore_command_add(self, ctx: commands.Context, *, command_name: str):
         command_name = command_name.strip().removeprefix(settings.prefix).strip().casefold()
         command = self.bot.get_command(command_name)
@@ -388,7 +389,7 @@ class Security(commands.Cog):
         await self._change_ignore_value(ctx, "commands", command.qualified_name, "add", "commands")
 
     @prefix_ignore_command.command(name="remove")
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def prefix_ignore_command_remove(self, ctx: commands.Context, *, command_name: str):
         command_name = command_name.strip().removeprefix(settings.prefix).strip().casefold()
         command = self.bot.get_command(command_name)
@@ -412,12 +413,12 @@ class Security(commands.Cog):
         await self.prefix_ignore_channel(ctx)
 
     @prefix_ignore_channel.command(name="add")
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def prefix_ignore_channel_add(self, ctx: commands.Context, channel: discord.TextChannel):
         await self._change_ignore_value(ctx, "channels", channel.id, "add", "channels")
 
     @prefix_ignore_channel.command(name="remove")
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def prefix_ignore_channel_remove(self, ctx: commands.Context, channel: discord.TextChannel):
         await self._change_ignore_value(ctx, "channels", channel.id, "remove", "channels")
 
@@ -438,12 +439,12 @@ class Security(commands.Cog):
         await self.prefix_ignore_user(ctx)
 
     @prefix_ignore_user.command(name="add")
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def prefix_ignore_user_add(self, ctx: commands.Context, user: discord.User):
         await self._change_ignore_value(ctx, "users", user.id, "add", "users")
 
     @prefix_ignore_user.command(name="remove")
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def prefix_ignore_user_remove(self, ctx: commands.Context, user: discord.User):
         await self._change_ignore_value(ctx, "users", user.id, "remove", "users")
 
@@ -464,12 +465,12 @@ class Security(commands.Cog):
         await self.prefix_ignore_bypass(ctx)
 
     @prefix_ignore_bypass.command(name="add")
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def prefix_ignore_bypass_add(self, ctx: commands.Context, user: discord.User):
         await self._change_ignore_value(ctx, "bypass_users", user.id, "add", "bypass users")
 
     @prefix_ignore_bypass.command(name="remove")
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def prefix_ignore_bypass_remove(self, ctx: commands.Context, user: discord.User):
         await self._change_ignore_value(ctx, "bypass_users", user.id, "remove", "bypass users")
 

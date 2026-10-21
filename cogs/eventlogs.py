@@ -11,6 +11,7 @@ from discord.ext import commands
 from utils.emojis import icon
 from core.settings import settings
 from utils.ui import panel, component_card
+from utils.owner_permissions import owner_or_guild_permissions
 
 log = logging.getLogger("zyven.eventlogs")
 LEADING_EMOJI_RE = re.compile(r"^(?:(?:<a?:[A-Za-z0-9_]{2,32}:\d{15,22}>|[^\w\s])\s*)+")
@@ -351,7 +352,7 @@ class EventLogs(commands.Cog):
         await self.send_panel(ctx, embed)
 
     @logging_group.command(name="auto")
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def logging_auto(self, ctx):
         config = await self.bot.db.get_guild(ctx.guild.id)
         existing = config.get("logging", {})
@@ -471,7 +472,7 @@ class EventLogs(commands.Cog):
         await self.send_panel(ctx, panel("Logging Configuration", "\n".join(lines)))
 
     @logging_group.command(name="enable")
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def logging_enable(self, ctx):
         data = (await self.bot.db.get_guild(ctx.guild.id)).get("logging", {})
         if not data.get("managed"):
@@ -482,7 +483,7 @@ class EventLogs(commands.Cog):
         await self.send_panel(ctx, panel("Logging Enabled!", "Successfully resumed logging services."))
 
     @logging_group.command(name="disable")
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def logging_disable(self, ctx):
         data = (await self.bot.db.get_guild(ctx.guild.id)).get("logging", {})
         if not data.get("managed"):
@@ -493,7 +494,7 @@ class EventLogs(commands.Cog):
         await self.send_panel(ctx, panel("Logging Disabled", "Logging services have been paused. Channels remain available."))
 
     @logging_group.command(name="reset")
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def logging_reset(self, ctx):
         data = (await self.bot.db.get_guild(ctx.guild.id)).get("logging", {})
         removed = 0

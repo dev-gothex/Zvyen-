@@ -12,6 +12,7 @@ from bson.errors import InvalidId
 
 from utils.emojis import icon
 from utils.ui import owner_bypass_permissions, panel, send_card, component_card, notice_panel
+from utils.owner_permissions import owner_or_guild_permissions
 from core.settings import settings
 
 log = logging.getLogger("zyven.moderation")
@@ -90,13 +91,13 @@ class Moderation(commands.Cog):
             await ctx.send(view=component_card(notice_panel("The server owner and bot cannot be moderated with this command.")))
             return False
         if isinstance(member, discord.Member):
-            if ctx.author.id not in {ctx.guild.owner_id, self.bot.owner_id} and member.top_role >= ctx.author.top_role:
+            if ctx.author.id != ctx.guild.owner_id and not settings.is_owner(ctx.author.id) and member.top_role >= ctx.author.top_role:
                 await ctx.send(view=component_card(notice_panel("You can only moderate members with a lower top role than yours.")))
                 return False
             if ctx.guild.me is None or member.top_role >= ctx.guild.me.top_role:
                 await ctx.send(view=component_card(notice_panel("Move the bot role above the target member's highest role first.")))
                 return False
-        elif not (ctx.author.guild_permissions.administrator or ctx.author.id in {ctx.guild.owner_id, self.bot.owner_id}):
+        elif not (ctx.author.guild_permissions.administrator or ctx.author.id == ctx.guild.owner_id or settings.is_owner(ctx.author.id)):
             await ctx.send(view=component_card(notice_panel("The target is not cached, so role hierarchy could not be checked. Try again shortly.")))
             return False
         return True
@@ -119,7 +120,7 @@ class Moderation(commands.Cog):
         target_id = int(match.group(1) or match.group(2)) if match else None
         member = ctx.guild.get_member(target_id) if target_id is not None else None
         if member is None and target_id is not None and not (
-            ctx.author.guild_permissions.administrator or ctx.author.id in {ctx.guild.owner_id, self.bot.owner_id}
+            ctx.author.guild_permissions.administrator or ctx.author.id == ctx.guild.owner_id or settings.is_owner(ctx.author.id)
         ):
             try:
                 member = await ctx.guild.fetch_member(target_id)
@@ -347,7 +348,7 @@ class Moderation(commands.Cog):
         if member.id == guild.owner_id or member.id == self.bot.user.id:
             await send_card(interaction, notice_panel("The server owner and bot cannot be moderated with this command."), ephemeral=True)
             return False
-        if interaction.user.id not in {guild.owner_id, self.bot.owner_id} and member.top_role >= interaction.user.top_role:
+        if interaction.user.id != guild.owner_id and not settings.is_owner(interaction.user.id) and member.top_role >= interaction.user.top_role:
             await send_card(interaction, notice_panel("You can only moderate members with a lower top role than yours."), ephemeral=True)
             return False
         bot_member = guild.me
@@ -721,7 +722,7 @@ class Moderation(commands.Cog):
 
     @commands.command(name="transfer")
     @commands.guild_only()
-    @commands.has_guild_permissions(administrator=True)
+    @owner_or_guild_permissions(administrator=True)
     @commands.bot_has_guild_permissions(manage_roles=True)
     async def prefix_transfer_roles(self, ctx: commands.Context, source: discord.Member, target: discord.Member):
         """Copy a member's manageable non-admin roles, then remove them from the source."""
@@ -786,7 +787,7 @@ class Moderation(commands.Cog):
 
     @commands.command(name="recover")
     @commands.guild_only()
-    @commands.has_guild_permissions(administrator=True)
+    @owner_or_guild_permissions(administrator=True)
     @commands.bot_has_guild_permissions(manage_roles=True)
     async def prefix_recover_roles(self, ctx: commands.Context, member: discord.Member):
         """Restore a member's saved transferable roles."""
@@ -1025,7 +1026,7 @@ class Moderation(commands.Cog):
         if role.is_default() or role.managed:
             await send_card(interaction, notice_panel("That role cannot be assigned manually."), ephemeral=True)
             return
-        if interaction.user.id not in {interaction.guild.owner_id, self.bot.owner_id} and role >= interaction.user.top_role:
+        if interaction.user.id != interaction.guild.owner_id and not settings.is_owner(interaction.user.id) and role >= interaction.user.top_role:
             await send_card(interaction, notice_panel("You can only manage roles below your highest role."), ephemeral=True)
             return
         if interaction.guild.me is None or role >= interaction.guild.me.top_role:
@@ -1149,7 +1150,7 @@ class NukeConfirmView(discord.ui.View):
     @discord.ui.button(label="Confirm", emoji=discord.PartialEmoji.from_str(icon("wtick")), style=discord.ButtonStyle.success)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         channel = self.channel
-        if interaction.user.id not in {channel.guild.owner_id, self.bot.owner_id} and not interaction.user.guild_permissions.manage_channels:
+        if interaction.user.id != channel.guild.owner_id and not settings.is_owner(interaction.user.id) and not interaction.user.guild_permissions.manage_channels:
             await interaction.response.send_message("You need **Manage Channels** to confirm this action.", ephemeral=True)
             return
         if channel.guild.me is None or not channel.permissions_for(channel.guild.me).manage_channels:

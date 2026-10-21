@@ -5,6 +5,7 @@ from discord.ext import commands
 
 from utils.emojis import icon
 from utils.ui import component_card, panel
+from utils.owner_permissions import owner_or_guild_permissions
 
 
 class Autoresponder(commands.Cog):
@@ -24,7 +25,7 @@ class Autoresponder(commands.Cog):
 
     @autoresponder.command(name="create", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def create(self, ctx: commands.Context, name: str, *, response: str):
         """Create an autoresponder: trigger name followed by the reply text."""
         name = name.strip()
@@ -42,7 +43,7 @@ class Autoresponder(commands.Cog):
 
     @autoresponder.command(name="delete", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def delete(self, ctx: commands.Context, *, name: str):
         """Delete an existing autoresponder."""
         deleted = await self.bot.db.delete_autoresponder(ctx.guild.id, name.strip())
@@ -52,7 +53,7 @@ class Autoresponder(commands.Cog):
 
     @autoresponder.command(name="edit", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def edit(self, ctx: commands.Context, name: str, *, response: str):
         """Edit an existing autoresponder's reply text."""
         response = response.strip()

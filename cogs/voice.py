@@ -21,6 +21,7 @@ VOICE_BULK_RATE_LIMIT = 2
 log = logging.getLogger("zyven.voice")
 
 
+from utils.owner_permissions import owner_or_guild_permissions
 VOICE_ACTIONS = {
     "lock": ("Lock", "your voice channel", "voice_lock"),
     "unlock": ("Unlock", "your voice channel", "voice_unlock"),
@@ -898,7 +899,7 @@ class VoiceControls(commands.Cog):
 
     @prefix_voicemaster.command(name="setup")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def prefix_voicemaster_setup(self, ctx: commands.Context):
         if self.has_active_setup(ctx.guild.id):
             await ctx.send(view=component_card(notice_panel(f"A VoiceMaster setup is already in progress in this server. Use `{settings.prefix}voicemaster close` to close it, or wait for it to expire.")))
@@ -924,7 +925,7 @@ class VoiceControls(commands.Cog):
 
     @prefix_voicemaster.command(name="close")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def prefix_voicemaster_close(self, ctx: commands.Context):
         """Close an active VoiceMaster setup session."""
         if not await self.close_setup_session(ctx.guild.id):
@@ -934,7 +935,7 @@ class VoiceControls(commands.Cog):
 
     @prefix_voicemaster.command(name="buttons")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def prefix_voicemaster_buttons(self, ctx: commands.Context):
         """Choose which controls appear on the VoiceMaster interface."""
         bot_member = ctx.guild.me
@@ -945,7 +946,7 @@ class VoiceControls(commands.Cog):
 
     @prefix_voicemaster.command(name="reset")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def prefix_voicemaster_reset(self, ctx: commands.Context):
         progress = await ctx.send(view=component_card(panel("VoiceMaster Reset in Progress", "Removing the current interface and VoiceMaster resources…")))
         config = (await self.bot.db.get_guild(ctx.guild.id)).get("voicemaster", {})
@@ -1418,7 +1419,7 @@ class VoiceControls(commands.Cog):
         return channel, owner_id
 
     async def can_control(self, interaction: discord.Interaction, owner_id: int | None) -> bool:
-        if owner_id == interaction.user.id or interaction.user.id == self.bot.owner_id or interaction.user.guild_permissions.manage_channels:
+        if owner_id == interaction.user.id or settings.is_owner(interaction.user.id) or interaction.user.guild_permissions.manage_channels:
             return True
         await send_card(interaction, notice_panel("Only this room's owner or a member with **Manage Channels** can change it."), ephemeral=True)
         return False

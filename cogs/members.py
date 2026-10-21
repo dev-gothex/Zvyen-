@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from utils.emojis import icon
 from core.settings import settings
 from utils.ui import owner_bypass_permissions, panel, send_card, component_card, notice_panel
+from utils.owner_permissions import owner_or_guild_permissions
 from utils.role_safety import dangerous_permissions
 
 log = logging.getLogger("zyven.members")
@@ -1051,7 +1052,7 @@ class Members(commands.Cog):
         if interaction.guild.me is None or role >= interaction.guild.me.top_role:
             await send_card(interaction, notice_panel("Move the bot role above the autorole first."), ephemeral=True)
             return
-        if interaction.user.id not in {interaction.guild.owner_id, self.bot.owner_id} and role >= interaction.user.top_role:
+        if interaction.user.id != interaction.guild.owner_id and not settings.is_owner(interaction.user.id) and role >= interaction.user.top_role:
             await send_card(interaction, notice_panel("You can only configure an autorole below your highest role."), ephemeral=True)
             return
         await interaction.response.defer(ephemeral=True)
@@ -1067,7 +1068,7 @@ class Members(commands.Cog):
             return "Choose a normal, assignable autorole."
         if bot_member is None or role >= bot_member.top_role:
             return "Choose a normal role below the bot's highest role."
-        if ctx.author.id not in {ctx.guild.owner_id, self.bot.owner_id} and role >= ctx.author.top_role:
+        if ctx.author.id != ctx.guild.owner_id and not settings.is_owner(ctx.author.id) and role >= ctx.author.top_role:
             return "You can only configure a role below your highest role."
         return None
 
@@ -1151,13 +1152,13 @@ class Members(commands.Cog):
 
     @autorole_bots.command(name="add")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def autorole_bots_add(self, ctx, role: discord.Role):
         await self._autorole_add_remove(ctx, "bots", role, True)
 
     @autorole_bots.command(name="remove")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def autorole_bots_remove(self, ctx, role: discord.Role):
         await self._autorole_add_remove(ctx, "bots", role, False)
 
@@ -1168,19 +1169,19 @@ class Members(commands.Cog):
 
     @autorole_humans.command(name="add")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def autorole_humans_add(self, ctx, role: discord.Role):
         await self._autorole_add_remove(ctx, "humans", role, True)
 
     @autorole_humans.command(name="remove")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def autorole_humans_remove(self, ctx, role: discord.Role):
         await self._autorole_add_remove(ctx, "humans", role, False)
 
     @autorole.group(name="reset", invoke_without_command=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def autorole_reset(self, ctx):
         await self._show_autorole_config(ctx)
 
@@ -1198,19 +1199,19 @@ class Members(commands.Cog):
 
     @autorole_reset.command(name="all")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def autorole_reset_all(self, ctx):
         await self._reset_autorole(ctx, "all")
 
     @autorole_reset.command(name="bots")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def autorole_reset_bots(self, ctx):
         await self._reset_autorole(ctx, "bots")
 
     @autorole_reset.command(name="humans")
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def autorole_reset_humans(self, ctx):
         await self._reset_autorole(ctx, "humans")
 
@@ -1236,7 +1237,7 @@ class Members(commands.Cog):
 
     @vcrole.command(name="add", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def vcrole_add(self, ctx, role: discord.Role):
         """Adds a role to the vcrole list"""
         config = (await self.bot.db.get_guild(ctx.guild.id)).get("vcrole", {})
@@ -1272,7 +1273,7 @@ class Members(commands.Cog):
 
     @vcrole.command(name="remove", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def vcrole_remove(self, ctx, role: discord.Role):
         """Removes the role from vcrole list"""
         config = (await self.bot.db.get_guild(ctx.guild.id)).get("vcrole", {})

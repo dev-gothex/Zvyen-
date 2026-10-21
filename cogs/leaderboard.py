@@ -11,6 +11,7 @@ from discord.ext import commands
 from utils.emojis import icon
 from core.settings import settings
 from utils.ui import component_card, panel
+from utils.owner_permissions import owner_or_guild_permissions
 
 log = logging.getLogger("zyven.leaderboard")
 ACCENT = 0xFFFF00
@@ -561,12 +562,12 @@ class Leaderboard(commands.Cog):
         await self.send_board(ctx, "invites", "invites")
 
     @commands.group(name="invitelb", aliases=("il",), invoke_without_command=True, case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def invitelb(self, ctx):
         await ctx.send(view=component_card(panel("Invite Leaderboard", f"Use `{settings.prefix}invitelb on` or `{settings.prefix}invitelb off`."), accent_colour=ACCENT))
 
     @invitelb.command(name="on", aliases=("enable",))
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def invitelb_on(self, ctx):
         if await self.enabled(ctx.guild.id, "invites"):
             await ctx.send(view=component_card(panel("Already Enabled", "Invite leaderboard is already enabled."), accent_colour=ACCENT)); return
@@ -575,19 +576,19 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Invite Leaderboard Enabled", "Invite tracking is on. Invite commands are now available."), accent_colour=ACCENT))
 
     @invitelb.command(name="off", aliases=("disable",))
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def invitelb_off(self, ctx):
         await self.bot.db.set_nested(ctx.guild.id, "leaderboard", "invites_enabled", False)
         self.invite_cache.pop(ctx.guild.id, None)
         await ctx.send(view=component_card(panel("Invite Leaderboard Disabled", "Invite tracking and invite commands are disabled."), accent_colour=ACCENT))
 
     @commands.group(name="msglb", aliases=("mlb",), invoke_without_command=True, case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def msglb(self, ctx):
         await ctx.send(view=component_card(panel("Message Leaderboard", f"Use `{settings.prefix}msglb on` or `{settings.prefix}msglb off`."), accent_colour=ACCENT))
 
     @msglb.command(name="on", aliases=("enable",))
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def msglb_on(self, ctx):
         if await self.enabled(ctx.guild.id, "messages"):
             await ctx.send(view=component_card(panel("Already Enabled", "Message leaderboard is already enabled."), accent_colour=ACCENT)); return
@@ -595,18 +596,18 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Message Leaderboard Enabled", "Message tracking is on. Message leaderboard commands are now available."), accent_colour=ACCENT))
 
     @msglb.command(name="off", aliases=("disable",))
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def msglb_off(self, ctx):
         await self.bot.db.set_nested(ctx.guild.id, "leaderboard", "messages_enabled", False)
         await ctx.send(view=component_card(panel("Message Leaderboard Disabled", "Message tracking and message leaderboard commands are disabled."), accent_colour=ACCENT))
 
     @commands.group(name="voicelb", aliases=("vlb",), invoke_without_command=True, case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def voicelb(self, ctx):
         await ctx.send(view=component_card(panel("Voice Leaderboard", f"Use `{settings.prefix}voicelb on` or `{settings.prefix}voicelb off`."), accent_colour=ACCENT))
 
     @voicelb.command(name="on", aliases=("enable",))
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def voicelb_on(self, ctx):
         if await self.enabled(ctx.guild.id, "voice"):
             await ctx.send(view=component_card(panel("Already Enabled", "Voice leaderboard is already enabled."), accent_colour=ACCENT)); return
@@ -618,7 +619,7 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Voice Leaderboard Enabled", "Voice tracking is on. Voice leaderboard commands are now available."), accent_colour=ACCENT))
 
     @voicelb.command(name="off", aliases=("disable",))
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def voicelb_off(self, ctx):
         await self.bot.db.set_nested(ctx.guild.id, "leaderboard", "voice_enabled", False)
         await self.bot.db.unset_value(ctx.guild.id, "voice.session")
@@ -688,14 +689,14 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(self.board_embed(ctx, mode, "all", rows, 0), BoardView(self, ctx, mode, "all"), accent_colour=ACCENT))
 
     @commands.command(name="addinvites", aliases=("ai",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def addinvites(self, ctx, member: discord.Member, amount: int):
         if not await self.require_enabled(ctx, "invites"): return
         await self.increment(ctx.guild.id, member.id, "invites.bonus", max(0, amount))
         await ctx.send(view=component_card(panel("Invite Bonus Added", f"Added **{max(0, amount)}** bonus invites to {member.mention}.", color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="removeinvites", aliases=("rvi",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def removeinvites(self, ctx, member: discord.Member, amount: int):
         if not await self.require_enabled(ctx, "invites"): return
         row = await self.stats.find_one({"_id": f"{ctx.guild.id}:{member.id}"}) or {}
@@ -704,7 +705,7 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Invite Bonus Removed", f"Removed **{max(0, amount)}** bonus invites from {member.mention}.", color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="clearinvites", aliases=("cvi",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def clearinvites(self, ctx, target: str = "all"):
         if not await self.require_enabled(ctx, "invites"):
             return
@@ -740,25 +741,25 @@ class Leaderboard(commands.Cog):
         )
 
     @commands.command(name="setallthreshold", aliases=("sat",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def setallthreshold(self, ctx, amount: int):
         await self.bot.db.set_nested(ctx.guild.id, "leaderboard", "invite_threshold", max(0, amount))
         await ctx.send(view=component_card(panel("Invite Threshold Updated", f"Set the invite threshold to **{max(0, amount)}**.", color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="unsetallthreshold", aliases=("uat",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def unsetallthreshold(self, ctx):
         await self.bot.db.unset_value(ctx.guild.id, "leaderboard.invite_threshold")
         await ctx.send(view=component_card(panel("Invite Threshold Removed", "Removed the invite threshold." , color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="setinviterole", aliases=("sir",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def setinviterole(self, ctx, amount: int, role: discord.Role):
         await self.bot.db.set_nested(ctx.guild.id, "leaderboard.invite_roles", str(max(0, amount)), str(role.id))
         await ctx.send(view=component_card(panel("Invite Role Added", f"Members with **{max(0, amount)}** invites receive {role.mention} when assigned manually.", color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="unsetinviterole", aliases=("uir",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def unsetinviterole(self, ctx, amount: int):
         await self.bot.db.unset_value(ctx.guild.id, f"leaderboard.invite_roles.{max(0, amount)}")
         await ctx.send(view=component_card(panel("Invite Role Removed", f"Removed the role mapping for **{max(0, amount)}** invites.", color=ACCENT), accent_colour=ACCENT))
@@ -793,7 +794,7 @@ class Leaderboard(commands.Cog):
         return sum(int(number) * scales[unit] for number, unit in matches)
 
     @commands.command(name="addvctime", aliases=("avt",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def addvctime(self, ctx, member: discord.Member, duration: str):
         if not await self.require_enabled(ctx, "voice"): return
         seconds = self.parse_duration(duration)
@@ -804,7 +805,7 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Voice Time Added", f"Added **{pretty_duration(seconds)}** to {member.mention}'s voice stats.", color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="reducevctime", aliases=("rvt",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def reducevctime(self, ctx, member: discord.Member, duration: str):
         if not await self.require_enabled(ctx, "voice"): return
         seconds = self.parse_duration(duration)
@@ -818,7 +819,7 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Voice Time Reduced", f"Reduced **{pretty_duration(seconds)}** from {member.mention}'s voice stats.", color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="clearvoice", aliases=("clv",), case_insensitive=True)
-    @commands.has_guild_permissions(administrator=True)
+    @owner_or_guild_permissions(administrator=True)
     async def clearvoice(self, ctx):
         await self._reset_with_loading(
             ctx, "Voice Stats Cleared",
@@ -864,7 +865,7 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel(f"{member.display_name}'s Messages", description, color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="addmessages", aliases=("amsg",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def addmessages(self, ctx, member: discord.Member, amount: int):
         if not await self.require_enabled(ctx, "messages"): return
         if amount < 1:
@@ -874,7 +875,7 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Messages Added", f"Added **{amount:,}** messages to {member.mention}.", color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="removemessages", aliases=("rmsg",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def removemessages(self, ctx, member: discord.Member, amount: int):
         if not await self.require_enabled(ctx, "messages"): return
         if amount < 1:
@@ -887,7 +888,7 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Messages Removed", f"Removed **{amount:,}** messages from {member.mention}.", color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="clearmessages", aliases=["clearmsgs", "clmsg"], case_insensitive=True)
-    @commands.has_guild_permissions(administrator=True)
+    @owner_or_guild_permissions(administrator=True)
     async def clearmessages(self, ctx):
         await self._reset_with_loading(
             ctx, "Message Stats Cleared",
@@ -915,12 +916,12 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Message Tracking Updated", text, color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="blacklistchannel", aliases=("blc",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def blacklistchannel(self, ctx, channel: discord.TextChannel):
         await self.change_message_filter(ctx, "channels", channel, True)
 
     @commands.command(name="unblacklistchannel", aliases=("ublc",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def unblacklistchannel(self, ctx, channel: discord.TextChannel):
         await self.change_message_filter(ctx, "channels", channel, False)
 
@@ -932,12 +933,12 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Excluded Channels", value, color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="blacklistcategory", aliases=("blcat",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def blacklistcategory(self, ctx, category: discord.CategoryChannel):
         await self.change_message_filter(ctx, "categories", category, True)
 
     @commands.command(name="unblacklistcategory", aliases=("ublcat",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def unblacklistcategory(self, ctx, category: discord.CategoryChannel):
         await self.change_message_filter(ctx, "categories", category, False)
 
@@ -949,7 +950,7 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Excluded Categories", value, color=ACCENT), accent_colour=ACCENT))
 
     @commands.group(name="messagechannels", aliases=("msgchannels",), invoke_without_command=True, case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def messagechannels(self, ctx):
         """Choose which channels contribute to message leaderboard counts."""
         await ctx.send(view=component_card(panel(
@@ -960,7 +961,7 @@ class Leaderboard(commands.Cog):
         ), accent_colour=ACCENT))
 
     @messagechannels.command(name="add", aliases=("include",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def messagechannels_add(self, ctx, channel: discord.TextChannel):
         """Add one text channel at a time, up to 10 selected channels total."""
         config = await self.bot.db.get_guild(ctx.guild.id)
@@ -980,7 +981,7 @@ class Leaderboard(commands.Cog):
         ), accent_colour=ACCENT))
 
     @messagechannels.command(name="remove", aliases=("exclude",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def messagechannels_remove(self, ctx, channel: discord.TextChannel):
         """Remove a channel from the message leaderboard selection."""
         await self.bot.db.pull_value(ctx.guild.id, "leaderboard.message_channels", str(channel.id))
@@ -994,7 +995,7 @@ class Leaderboard(commands.Cog):
         ), accent_colour=ACCENT))
 
     @messagechannels.command(name="show", aliases=("list",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def messagechannels_show(self, ctx):
         """Show channels selected for message leaderboard tracking."""
         config = await self.bot.db.get_guild(ctx.guild.id)
@@ -1003,7 +1004,7 @@ class Leaderboard(commands.Cog):
         await ctx.send(view=component_card(panel("Message Count Channels", value, color=ACCENT), accent_colour=ACCENT))
 
     @messagechannels.command(name="reset", aliases=("clear",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def messagechannels_reset(self, ctx):
         """Clear the selected message-count channels and count all non-blacklisted channels."""
         await self._reset_with_loading(
@@ -1013,13 +1014,13 @@ class Leaderboard(commands.Cog):
         )
 
     @commands.command(name="setmessagerole", aliases=("smr",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def setmessagerole(self, ctx, role: discord.Role):
         await self.bot.db.add_to_set(ctx.guild.id, "leaderboard.message_roles", str(role.id))
         await ctx.send(view=component_card(panel("Message Role Added", f"{role.mention} can now use message leaderboard commands.", color=ACCENT), accent_colour=ACCENT))
 
     @commands.command(name="unsetmessagerole", aliases=("umr",), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def unsetmessagerole(self, ctx, role: discord.Role):
         await self.bot.db.pull_value(ctx.guild.id, "leaderboard.message_roles", str(role.id))
         await ctx.send(view=component_card(panel("Message Role Removed", f"Removed {role.mention} from message leaderboard access.", color=ACCENT), accent_colour=ACCENT))

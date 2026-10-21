@@ -5,6 +5,7 @@ from discord.ext import commands
 
 from utils.emojis import icon
 from utils.ui import component_card, panel
+from utils.owner_permissions import owner_or_guild_permissions
 
 
 def emoji_parts(raw: str) -> tuple[discord.PartialEmoji, str]:
@@ -37,7 +38,7 @@ class ReactionRoles(commands.Cog):
 
     @reactionrole.command(name="add", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def add(self, ctx, message_id: int, emoji_text: str, role: discord.Role):
         """Add a reaction role to a message."""
         if role.is_default() or role.managed:
@@ -82,7 +83,7 @@ class ReactionRoles(commands.Cog):
 
     @reactionrole.command(name="remove", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def remove(self, ctx, message_id: int, emoji_text: str):
         """Remove a reaction role from a message."""
         emoji, key = emoji_parts(emoji_text)
@@ -111,7 +112,7 @@ class ReactionRoles(commands.Cog):
 
     @reactionrole.command(name="reset", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def reset(self, ctx):
         """Clear all reaction roles in this server."""
         count = await self.bot.db.clear_reaction_roles(ctx.guild.id)

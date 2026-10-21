@@ -15,6 +15,7 @@ from discord.ext import commands
 from utils.emojis import icon
 from core.settings import settings
 from utils.ui import component_card, panel
+from utils.owner_permissions import owner_or_guild_permissions
 
 
 TIME_PART = re.compile(r"(\d+)([dhms])", re.IGNORECASE)
@@ -126,7 +127,7 @@ class Utility(commands.Cog):
 
     @commands.command(name="roleicon", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def roleicon(self, ctx, role: discord.Role, emoji_text: str):
         """Set a role's icon from a Unicode or custom emoji."""
         guild = ctx.guild
@@ -384,7 +385,7 @@ class Utility(commands.Cog):
 
     @commands.command(name="setupi", case_insensitive=True)
     @commands.guild_only()
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def setupi(self, ctx, upi_id: str):
         """Set this server's UPI ID used by `showqr` (Manage Server required)."""
         if len(upi_id) > 100 or not re.fullmatch(r"[A-Za-z0-9._-]{2,256}@[A-Za-z0-9.-]{2,64}", upi_id):
@@ -431,7 +432,7 @@ class Utility(commands.Cog):
         await ctx.invoke(help_command, query="media")
 
     @media.command(name="setup", case_insensitive=True)
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def media_setup(self, ctx, channel: discord.TextChannel):
         """Set up a media-only channel."""
         me = ctx.guild.me
@@ -451,7 +452,7 @@ class Utility(commands.Cog):
         await self.reply(ctx, f"{icon('approve')} Success", f"Successfully set {channel.mention} as the media-only channel.\n\nMake sure to grant me \"Manage Messages\" permission for functioning of media channel.", color=0x57F287)
 
     @media.command(name="remove", case_insensitive=True)
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def media_remove(self, ctx):
         """Remove the configured media-only channel."""
         config = await self.bot.db.get_guild(ctx.guild.id)
@@ -474,7 +475,7 @@ class Utility(commands.Cog):
         await self.reply(ctx, "Media Channel Configuration", status)
 
     @media.group(name="bypass", invoke_without_command=True, case_insensitive=True)
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def media_bypass(self, ctx):
         """Manage members who can bypass the media-only channel."""
         if await self.require_media_channel(ctx) is None:
@@ -482,7 +483,7 @@ class Utility(commands.Cog):
         await self.reply(ctx, "Media Bypass", f"`{settings.prefix}media bypass add <member|role>`\n`{settings.prefix}media bypass remove <member|role>`\n`{settings.prefix}media bypass show`")
 
     @media_bypass.command(name="add", case_insensitive=True)
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def media_bypass_add(self, ctx, member_or_role: discord.Role | discord.Member):
         """Add a member or role to the media bypass list."""
         if await self.require_media_channel(ctx) is None:
@@ -498,7 +499,7 @@ class Utility(commands.Cog):
         await self.reply(ctx, f"{icon('approve')} Success", f"{member_or_role.mention} has been added to bypass list.\n\nMake sure to grant me \"Manage Messages\" permission for functioning of media channel.", color=0x57F287)
 
     @media_bypass.command(name="remove", case_insensitive=True)
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def media_bypass_remove(self, ctx, member_or_role: discord.Role | discord.Member):
         """Remove a member or role from the media bypass list."""
         if await self.require_media_channel(ctx) is None:
@@ -508,7 +509,7 @@ class Utility(commands.Cog):
         await self.reply(ctx, f"{icon('approve')} Success", f"{member_or_role.mention} has been removed from bypass list.", color=0x57F287)
 
     @media_bypass.command(name="show", case_insensitive=True)
-    @commands.has_guild_permissions(manage_channels=True)
+    @owner_or_guild_permissions(manage_channels=True)
     async def media_bypass_show(self, ctx):
         """Show members who can bypass the media-only channel."""
         if await self.require_media_channel(ctx) is None:

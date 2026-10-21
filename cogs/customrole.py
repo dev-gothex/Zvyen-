@@ -11,6 +11,7 @@ from discord.ext import commands
 from utils.emojis import icon
 from core.settings import settings
 from utils.ui import component_card, panel
+from utils.owner_permissions import owner_or_guild_permissions
 from utils.role_safety import dangerous_permissions
 
 
@@ -63,7 +64,7 @@ class CustomRole(commands.Cog):
             return await self.respond(ctx, f"{icon('autorole_error')} Role Cannot Be Configured", message)
         if bot_member is None or role >= bot_member.top_role:
             return await self.respond(ctx, f"{icon('autorole_error')} Role Hierarchy Error", "Move Zyven's highest role above this role first.")
-        if ctx.author.id not in {ctx.guild.owner_id, self.bot.owner_id} and role >= ctx.author.top_role:
+        if ctx.author.id != ctx.guild.owner_id and not settings.is_owner(ctx.author.id) and role >= ctx.author.top_role:
             return await self.respond(ctx, f"{icon('autorole_error')} Role Hierarchy Error", "You can only configure a role below your highest role.")
         cfg = await self.config(ctx.guild.id)
         if cfg.get(key) == role.id:
@@ -100,43 +101,43 @@ class CustomRole(commands.Cog):
         await ctx.invoke(self.bot.get_command("help"), query="setup")
 
     @setup_group.command(name="reqrole", case_insensitive=True)
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def setup_reqrole(self, ctx, role: discord.Role):
         """Setup required role for custom role commands."""
         await self.set_role(ctx, "reqrole", role)
 
     @setup_group.command(name="guest", case_insensitive=True)
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def setup_guest(self, ctx, role: discord.Role):
         """Setup guest role in the guild."""
         await self.set_role(ctx, "guest", role)
 
     @setup_group.command(name="staff", case_insensitive=True)
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def setup_staff(self, ctx, role: discord.Role):
         """Setup staff role in the guild."""
         await self.set_role(ctx, "staff", role)
 
     @setup_group.command(name="girl", case_insensitive=True)
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def setup_girl(self, ctx, role: discord.Role):
         """Setup girl role in the guild."""
         await self.set_role(ctx, "girl", role)
 
     @setup_group.command(name="vip", case_insensitive=True)
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def setup_vip(self, ctx, role: discord.Role):
         """Setup VIP role in the guild."""
         await self.set_role(ctx, "vip", role)
 
     @setup_group.command(name="friend", case_insensitive=True)
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def setup_friend(self, ctx, role: discord.Role):
         """Setup friend role in the guild."""
         await self.set_role(ctx, "friend", role)
 
     @setup_group.command(name="create", case_insensitive=True)
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def setup_create(self, ctx, name: str, role: discord.Role):
         """Create a custom role command."""
         risky = dangerous_permissions(role)
@@ -146,7 +147,7 @@ class CustomRole(commands.Cog):
             return await self.respond(ctx, f"{icon('autorole_error')} Role Cannot Be Configured", message)
         if ctx.guild.me is None or role >= ctx.guild.me.top_role:
             return await self.respond(ctx, f"{icon('autorole_error')} Role Hierarchy Error", "Move Zyven's highest role above this role first.")
-        if ctx.author.id not in {ctx.guild.owner_id, self.bot.owner_id} and role >= ctx.author.top_role:
+        if ctx.author.id != ctx.guild.owner_id and not settings.is_owner(ctx.author.id) and role >= ctx.author.top_role:
             return await self.respond(ctx, f"{icon('autorole_error')} Role Hierarchy Error", "You can only configure a role below your highest role.")
         name = name.casefold()
         if not COMMAND_NAME.fullmatch(name) or name in {"setup", "config", "list", "reset"}:
@@ -180,7 +181,7 @@ class CustomRole(commands.Cog):
         )
 
     @setup_group.command(name="delete", case_insensitive=True)
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def setup_delete(self, ctx, *, name: str):
         """Delete a custom role command."""
         cfg = await self.config(ctx.guild.id)
@@ -218,7 +219,7 @@ class CustomRole(commands.Cog):
         await self.respond(ctx, f"{icon('customrole')} Custom Role Configuration", "\n\n".join(lines))
 
     @setup_group.command(name="reset", case_insensitive=True)
-    @commands.has_guild_permissions(manage_roles=True)
+    @owner_or_guild_permissions(manage_roles=True)
     async def setup_reset(self, ctx):
         """Reset all custom role configuration."""
         progress = await ctx.send(view=component_card(panel(f"{icon('loading')} Resetting Custom Role Setup", "Clearing the saved custom role settings…")), allowed_mentions=discord.AllowedMentions.none())
@@ -232,9 +233,9 @@ class CustomRole(commands.Cog):
     async def toggle_role(self, ctx, member: discord.Member, role_key: str, role_id: int | None = None):
         cfg = await self.config(ctx.guild.id)
         required = ctx.guild.get_role(cfg.get("reqrole", 0)) if cfg.get("reqrole") else None
-        if required is not None and required not in ctx.author.roles and ctx.author.id not in {ctx.guild.owner_id, self.bot.owner_id}:
+        if required is not None and required not in ctx.author.roles and ctx.author.id != ctx.guild.owner_id and not settings.is_owner(ctx.author.id):
             return await self.respond(ctx, f"{icon('autorole_error')} Required Role Required", f"{icon('autorole_arrow')} You need {required.mention} to use custom role commands")
-        if required is None and ctx.author.id not in {ctx.guild.owner_id, self.bot.owner_id} and not ctx.author.guild_permissions.manage_roles:
+        if required is None and ctx.author.id != ctx.guild.owner_id and not settings.is_owner(ctx.author.id) and not ctx.author.guild_permissions.manage_roles:
             return await self.respond(ctx, f"{icon('autorole_error')} Required Role Not Set", f"{icon('autorole_arrow')} Ask a moderator to run `{settings.prefix}setup reqrole <role>` or use Manage Roles")
         selected_id = role_id if role_id is not None else cfg.get(role_key)
         role = ctx.guild.get_role(selected_id) if selected_id else None

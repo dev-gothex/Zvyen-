@@ -13,6 +13,7 @@ from discord.ext import commands
 from core.settings import settings
 from utils.emojis import icon
 from utils.ui import component_card, edit_component_card, panel, send_component_card, send_card
+from utils.owner_permissions import owner_or_guild_permissions
 
 log = logging.getLogger("zyven.information")
 
@@ -589,7 +590,7 @@ class Information(commands.Cog):
         await ctx.send(view=component_card(view.make_embed(), view), mention_author=False, allowed_mentions=discord.AllowedMentions.none())
 
     @list_group.command(name="invoice", aliases=("invites", "invite"), case_insensitive=True)
-    @commands.has_guild_permissions(manage_guild=True)
+    @owner_or_guild_permissions(manage_guild=True)
     async def list_invoice(self, ctx: commands.Context):
         try:
             invites = await ctx.guild.invites()

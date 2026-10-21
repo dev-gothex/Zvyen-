@@ -70,7 +70,7 @@ class AntiBot(commands.Cog):
         self.bot = bot
 
     async def _can_manage(self, ctx: commands.Context) -> bool:
-        if ctx.author.id == self.bot.owner_id or ctx.author.guild_permissions.manage_guild:
+        if settings.is_owner(ctx.author.id) or ctx.author.guild_permissions.manage_guild:
             return True
         await ctx.reply(view=component_card(panel("Permission Required", "You need **Manage Server** to configure AntiBot Purge.")), mention_author=False)
         return False
