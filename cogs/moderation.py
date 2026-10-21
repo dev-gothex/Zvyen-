@@ -60,6 +60,7 @@ class Moderation(commands.Cog):
         # Keep the original overwrite available for an immediate unlock while
         # its durable backup is being written in the background.
         self._channel_lock_snapshots: dict[tuple[int, int], bool | None] = {}
+        self._role_recovery_in_progress: set[tuple[int, int]] = set()
 
     def schedule_followup(self, coro, label: str):
         """Run optional DMs/logging without delaying the moderation reply."""
@@ -839,7 +840,11 @@ class Moderation(commands.Cog):
                 f"{icon('wtick')} Found `{len(roles)}` restorable role(s) for {member.mention}.\n"
                 f"{icon('loading')} Applying saved roles…",
             )), allowed_mentions=discord.AllowedMentions.none())
-            await member.add_roles(*roles, atomic=False, reason=f"Role recovery by {ctx.author} ({ctx.author.id})")
+            self._role_recovery_in_progress.add((ctx.guild.id, member.id))
+            try:
+                await member.add_roles(*roles, atomic=False, reason=f"Role recovery by {ctx.author} ({ctx.author.id})")
+            finally:
+                self._role_recovery_in_progress.discard((ctx.guild.id, member.id))
         except (discord.Forbidden, discord.HTTPException):
             log.exception("Role recovery failed in guild %s for %s", ctx.guild.id, member.id)
             await progress.edit(view=component_card(notice_panel(
@@ -898,7 +903,11 @@ class Moderation(commands.Cog):
             )))
             return
         try:
-            await member.add_roles(*roles, atomic=False, reason=f"Role recovery by {interaction.user} ({interaction.user.id})")
+            self._role_recovery_in_progress.add((interaction.guild.id, member.id))
+            try:
+                await member.add_roles(*roles, atomic=False, reason=f"Role recovery by {interaction.user} ({interaction.user.id})")
+            finally:
+                self._role_recovery_in_progress.discard((interaction.guild.id, member.id))
         except (discord.Forbidden, discord.HTTPException):
             log.exception("Role recovery failed in guild %s for %s", interaction.guild.id, member.id)
             await interaction.edit_original_response(view=component_card(notice_panel(
@@ -934,6 +943,41 @@ class Moderation(commands.Cog):
             log.warning("Automatic role recovery failed for member %s in guild %s; check role hierarchy", member.id, member.guild.id)
         except Exception:
             log.exception("Could not check role recovery for rejoining member %s in guild %s", member.id, member.guild.id)
+
+    @commands.Cog.listener()
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
+        """Remember manageable roles removed by an external action for Recover."""
+        if before.roles == after.roles or (after.guild.id, after.id) in self._role_recovery_in_progress:
+            return
+        bot_member = after.guild.me
+        if bot_member is None:
+            return
+        removed = [
+            role for role in before.roles
+            if role not in after.roles
+            and not role.is_default()
+            and not role.managed
+            and not role.permissions.administrator
+            and role < bot_member.top_role
+        ]
+        if not removed:
+            return
+        try:
+            existing = await self.bot.db.get_role_recovery(after.guild.id, after.id)
+            previous_ids = existing.get("role_ids", []) if isinstance(existing, dict) else []
+            if not isinstance(previous_ids, (list, tuple, set)):
+                previous_ids = []
+            role_ids = []
+            for role_id in (*previous_ids, *(role.id for role in removed)):
+                try:
+                    role_ids.append(int(role_id))
+                except (TypeError, ValueError, OverflowError):
+                    continue
+            if role_ids:
+                await self.bot.db.save_role_recovery(after.guild.id, after.id, role_ids)
+                log.info("Saved %s removed role(s) for Recover on member %s in guild %s", len(removed), after.id, after.guild.id)
+        except Exception:
+            log.exception("Could not save removed roles for Recover on member %s in guild %s", after.id, after.guild.id)
 
     @app_commands.command(name="role", description="Add or remove a role from a member")
     @app_commands.guild_only()
