@@ -134,7 +134,7 @@ class Utility(commands.Cog):
         bot_member = guild.me
         if role.is_default() or role.managed:
             return await self.reply(ctx, f"{icon('error')} Cannot Update Role", "Default and integration-managed roles cannot have their icons changed.", color=0xED4245)
-        if ctx.author.id != guild.owner_id and role >= ctx.author.top_role:
+        if ctx.author.id != guild.owner_id and not settings.is_owner(ctx.author.id) and role >= ctx.author.top_role:
             return await self.reply(ctx, f"{icon('error')} Role Hierarchy", "You can only change the icon of roles below your highest role.", color=0xED4245)
         if bot_member is None or not bot_member.guild_permissions.manage_roles:
             return await self.reply(ctx, f"{icon('error')} Permission Required", "I need **Manage Roles** permission to update role icons.", color=0xED4245)

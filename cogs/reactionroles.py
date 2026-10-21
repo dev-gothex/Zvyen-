@@ -3,6 +3,7 @@
 import discord
 from discord.ext import commands
 
+from core.settings import settings
 from utils.emojis import icon
 from utils.ui import component_card, panel
 from utils.owner_permissions import owner_or_guild_permissions
@@ -53,7 +54,7 @@ class ReactionRoles(commands.Cog):
             )
         if ctx.guild.me is None or role >= ctx.guild.me.top_role:
             return await self.respond(ctx, f"{icon('autorole_error')} Role Hierarchy Error", "Move Zyven's highest role above the reaction role first.")
-        if ctx.author.id != ctx.guild.owner_id and role >= ctx.author.top_role:
+        if ctx.author.id != ctx.guild.owner_id and not settings.is_owner(ctx.author.id) and role >= ctx.author.top_role:
             return await self.respond(ctx, f"{icon('autorole_error')} Role Hierarchy Error", "You can only configure reaction roles below your highest role.")
         try:
             message = await ctx.channel.fetch_message(message_id)

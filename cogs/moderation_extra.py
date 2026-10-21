@@ -111,7 +111,7 @@ class ModerationExtras(commands.Cog):
         self.deleted_messages: dict[int, discord.Message] = {}
 
     def is_owner(self, ctx: commands.Context) -> bool:
-        return ctx.author.id in {settings.owner_id, ctx.guild.owner_id}
+        return settings.is_owner(ctx.author.id) or ctx.author.id == ctx.guild.owner_id
 
     def schedule_log(self, guild: discord.Guild, text: str, label: str) -> None:
         """Keep optional moderation logging off the role update response path."""
@@ -282,7 +282,7 @@ class ModerationExtras(commands.Cog):
             "role_delete": "manage_roles",
             "channel_access": "manage_channels",
         }.get(action)
-        if permission and actor.id not in {settings.owner_id, guild.owner_id} and not getattr(actor.guild_permissions, permission, False):
+        if permission and not settings.is_owner(actor.id) and actor.id != guild.owner_id and not getattr(actor.guild_permissions, permission, False):
             return f"Your **{permission.replace('_', ' ')}** permission changed. No changes were made."
         bot_permission = "manage_roles" if action in {"role_add", "role_remove", "role_delete"} else "manage_channels" if action == "channel_access" else permission
         if bot_permission and (guild.me is None or not getattr(guild.me.guild_permissions, bot_permission, False)):
@@ -299,7 +299,7 @@ class ModerationExtras(commands.Cog):
                     skipped += 1
                     continue
                 if member.top_role >= bot_member.top_role or (
-                    actor.id not in {settings.owner_id, guild.owner_id}
+                    not settings.is_owner(actor.id) and actor.id != guild.owner_id
                     and member.top_role >= actor.top_role
                 ):
                     skipped += 1
@@ -334,7 +334,7 @@ class ModerationExtras(commands.Cog):
         if action == "unmuteall":
             members = [guild.get_member(user_id) for user_id in payload["member_ids"]]
             members = [m for m in members if m and m.is_timed_out() and m.top_role < guild.me.top_role
-                       and (actor.id in {settings.owner_id, guild.owner_id} or m.top_role < actor.top_role)]
+                       and (settings.is_owner(actor.id) or actor.id == guild.owner_id or m.top_role < actor.top_role)]
             removed = failed = 0
             for member in members:
                 try:
@@ -349,7 +349,7 @@ class ModerationExtras(commands.Cog):
             role = guild.get_role(payload["role_id"])
             if not role or role.is_default() or role.managed or dangerous_permissions(role) or not guild.me or role >= guild.me.top_role:
                 return "The target role was deleted, unassignable, or is now above Zyven's highest role. No changes were made."
-            if actor.id not in {settings.owner_id, guild.owner_id} and role >= actor.top_role:
+            if not settings.is_owner(actor.id) and actor.id != guild.owner_id and role >= actor.top_role:
                 return "The target role is now at or above your highest role. No changes were made."
             changed = failed = skipped = 0
             for user_id in payload["member_ids"]:
@@ -379,7 +379,7 @@ class ModerationExtras(commands.Cog):
             role = guild.get_role(payload["role_id"])
             if not role:
                 return "That role no longer exists."
-            if role.is_default() or role.managed or role.permissions.administrator or role >= guild.me.top_role or (actor.id not in {settings.owner_id, guild.owner_id} and role >= actor.top_role):
+            if role.is_default() or role.managed or role.permissions.administrator or role >= guild.me.top_role or (not settings.is_owner(actor.id) and actor.id != guild.owner_id and role >= actor.top_role):
                 return "The role is now above your or Zyven's highest role. No changes were made."
             await role.delete(reason=audit_reason(actor, "Role delete confirmed"))
             await self.log(guild, f"Role {role.name} was deleted by {actor.mention}.")
