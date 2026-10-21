@@ -855,6 +855,62 @@ class Moderation(commands.Cog):
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
+    @app_commands.command(name="recover", description="Restore a member's saved transferable roles")
+    @app_commands.guild_only()
+    @owner_bypass_permissions(administrator=True)
+    async def recover_roles(self, interaction: discord.Interaction, member: discord.Member):
+        """Slash-command equivalent of the prefix role recovery command."""
+        if member.id in {interaction.guild.owner_id, self.bot.user.id}:
+            await send_card(interaction, notice_panel("The server owner and bot cannot use role recovery."), ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
+        try:
+            recovery = await self.bot.db.get_role_recovery(interaction.guild.id, member.id)
+        except Exception:
+            log.exception("Could not load role recovery in guild %s for %s", interaction.guild.id, member.id)
+            await interaction.edit_original_response(view=component_card(notice_panel(
+                "Could not read the saved roles because the database is unavailable. Try again shortly.",
+                title=f"{icon('error')} Role Recovery Failed",
+            )))
+            return
+        if not recovery:
+            await interaction.edit_original_response(view=component_card(notice_panel(
+                "No saved role recovery was found for that member in this server.",
+                title=f"{icon('error')} No Recovery Data",
+            )))
+            return
+        raw_role_ids = recovery.get("role_ids", [])
+        if not isinstance(raw_role_ids, (list, tuple, set)):
+            raw_role_ids = []
+        saved_roles = []
+        for role_id in raw_role_ids:
+            try:
+                role = interaction.guild.get_role(int(role_id))
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if role is not None:
+                saved_roles.append(role)
+        roles, skipped = self.transferable_roles(interaction.guild, saved_roles)
+        if not roles:
+            await interaction.edit_original_response(view=component_card(notice_panel(
+                "No saved roles can currently be restored. Missing, administrator, managed, and above-Zyven roles are skipped.",
+                title=f"{icon('error')} Nothing to Restore",
+            )))
+            return
+        try:
+            await member.add_roles(*roles, atomic=False, reason=f"Role recovery by {interaction.user} ({interaction.user.id})")
+        except (discord.Forbidden, discord.HTTPException):
+            log.exception("Role recovery failed in guild %s for %s", interaction.guild.id, member.id)
+            await interaction.edit_original_response(view=component_card(notice_panel(
+                "Discord rejected role recovery. Check the role hierarchy and permissions, then retry.",
+                title=f"{icon('error')} Role Recovery Failed",
+            )))
+            return
+        await interaction.edit_original_response(view=component_card(panel(
+            f"{icon('tick')} Roles Recovered",
+            f"Restored `{len(roles)}` saved role(s) to {member.mention}. Administrator roles are never restored; `{skipped}` role(s) were skipped.",
+        )))
+
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         """Automatically restore a prior transfer snapshot when its member rejoins."""
