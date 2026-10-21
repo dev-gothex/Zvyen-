@@ -1,0 +1,42 @@
+# Keep only the checked-in environment template in the build context.
+.env*
+*.env
+*.env.*
+*.dotenv
+*.dotenv.*
+!.env.example
+
+# Repository metadata and local environments.
+.git/
+.venv/
+venv/
+
+# Persisted data, backups, logs, and database files.
+data/
+backup/
+backups/
+*.bak
+*.backup
+*.backup.*
+logs/
+*.log
+*.sqlite*
+*.db*
+
+# Python caches and other local/runtime artifacts.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+dist/
+build/
+*.pid
+*.pidfile
+*.tmp
+*.temp
+*.swp
+*.swo
