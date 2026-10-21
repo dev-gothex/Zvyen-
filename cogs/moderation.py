@@ -787,7 +787,6 @@ class Moderation(commands.Cog):
     @commands.guild_only()
     @commands.has_guild_permissions(administrator=True)
     @commands.bot_has_guild_permissions(manage_roles=True)
-    @commands.max_concurrency(1, per=commands.BucketType.guild, wait=False)
     async def prefix_recover_roles(self, ctx: commands.Context, member: discord.Member):
         """Restore a member's saved transferable roles."""
         if member.id == ctx.guild.owner_id or member.id == self.bot.user.id:
