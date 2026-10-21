@@ -922,7 +922,7 @@ class Moderation(commands.Cog):
 
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
-        """Automatically restore a prior transfer snapshot when its member rejoins."""
+        """Automatically restore saved roles when a member rejoins."""
         try:
             recovery = await self.bot.db.get_role_recovery(member.guild.id, member.id)
             if not recovery:
@@ -933,16 +933,53 @@ class Moderation(commands.Cog):
                 log.info("Skipping role recovery for jailed member %s in guild %s", member.id, member.guild.id)
                 return
             await asyncio.sleep(1.0)
-            saved_roles = [member.guild.get_role(int(role_id)) for role_id in recovery.get("role_ids", [])]
+            raw_role_ids = recovery.get("role_ids", [])
+            if not isinstance(raw_role_ids, (list, tuple, set)):
+                raw_role_ids = []
+            saved_roles = []
+            for role_id in raw_role_ids:
+                try:
+                    role = member.guild.get_role(int(role_id))
+                except (TypeError, ValueError, OverflowError):
+                    continue
+                if role is not None:
+                    saved_roles.append(role)
             roles, _skipped = self.transferable_roles(member.guild, [role for role in saved_roles if role is not None])
             if not roles:
                 return
-            await member.add_roles(*roles, atomic=False, reason="Automatic role recovery after rejoin")
+            self._role_recovery_in_progress.add((member.guild.id, member.id))
+            try:
+                await member.add_roles(*roles, atomic=False, reason="Automatic role recovery after rejoin")
+            finally:
+                self._role_recovery_in_progress.discard((member.guild.id, member.id))
             log.info("Restored %s saved roles to rejoining member %s in guild %s", len(roles), member.id, member.guild.id)
         except (discord.Forbidden, discord.HTTPException):
             log.warning("Automatic role recovery failed for member %s in guild %s; check role hierarchy", member.id, member.guild.id)
         except Exception:
             log.exception("Could not check role recovery for rejoining member %s in guild %s", member.id, member.guild.id)
+
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: discord.Member):
+        """Save manageable roles before a member leaves, is kicked, or is banned."""
+        try:
+            roles, _skipped = self.transferable_roles(member.guild, member.roles)
+            if not roles:
+                return
+            existing = await self.bot.db.get_role_recovery(member.guild.id, member.id)
+            previous_ids = existing.get("role_ids", []) if isinstance(existing, dict) else []
+            if not isinstance(previous_ids, (list, tuple, set)):
+                previous_ids = []
+            role_ids = []
+            for role_id in (*previous_ids, *(role.id for role in roles)):
+                try:
+                    role_ids.append(int(role_id))
+                except (TypeError, ValueError, OverflowError):
+                    continue
+            if role_ids:
+                await self.bot.db.save_role_recovery(member.guild.id, member.id, role_ids)
+                log.info("Saved %s role(s) for departed member %s in guild %s", len(roles), member.id, member.guild.id)
+        except Exception:
+            log.exception("Could not save roles for departed member %s in guild %s", member.id, member.guild.id)
 
     @commands.Cog.listener()
     async def on_member_update(self, before: discord.Member, after: discord.Member):
