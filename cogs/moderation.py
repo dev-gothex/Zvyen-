@@ -78,7 +78,7 @@ class Moderation(commands.Cog):
         return task
 
     async def prefix_permission(self, ctx: commands.Context, permission: str) -> bool:
-        if ctx.author.id in {settings.owner_id, ctx.guild.owner_id} or getattr(ctx.author.guild_permissions, permission, False):
+        if settings.is_owner(ctx.author.id) or ctx.author.id == ctx.guild.owner_id or getattr(ctx.author.guild_permissions, permission, False):
             return True
         await ctx.send(view=component_card(notice_panel(f"You need **{permission.replace('_', ' ').title()}** permission to use this command.", title="Access Denied")), delete_after=5)
         return False

@@ -18,7 +18,7 @@ log = logging.getLogger("zyven.information")
 
 
 async def team_owner_only(ctx: commands.Context) -> bool:
-    return ctx.author.id == settings.owner_id
+    return settings.is_owner(ctx.author.id)
 
 
 def duration(seconds: float) -> str:

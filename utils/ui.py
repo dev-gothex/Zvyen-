@@ -361,7 +361,7 @@ def antinuke_setup_embed(guild: discord.Guild, roles: list[discord.Role], securi
 
 
 def can_manage(interaction: discord.Interaction, owner_id: int) -> bool:
-    return interaction.user.id == owner_id or bool(interaction.user.guild_permissions.manage_guild)
+    return settings.is_owner(interaction.user.id) or interaction.user.id == owner_id or bool(interaction.user.guild_permissions.manage_guild)
 
 
 def is_server_owner(interaction: discord.Interaction) -> bool:
@@ -405,7 +405,7 @@ async def send_security_access_denied(interaction: discord.Interaction, *, detai
 def owner_bypass_permissions(**required):
     """App-command user-permission check that exempts the configured bot owner."""
     async def predicate(interaction: discord.Interaction) -> bool:
-        if interaction.user.id == settings.owner_id:
+        if settings.is_owner(interaction.user.id):
             return True
         permissions = interaction.permissions
         missing = [name for name, value in required.items() if getattr(permissions, name, False) != value]

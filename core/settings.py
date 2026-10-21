@@ -114,6 +114,26 @@ def _env_int(name: str, default: int, *, minimum: int | None = None, maximum: in
     return parsed
 
 
+def _env_owner_ids() -> frozenset[int]:
+    """Read comma-separated OWNER_IDS, retaining OWNER_ID compatibility."""
+    raw = os.getenv("OWNER_IDS", "").strip() or os.getenv("OWNER_ID", "1498085359458717747")
+    values = []
+    for item in raw.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        try:
+            value = int(item)
+        except ValueError as exc:
+            raise RuntimeError(f"OWNER_IDS must contain only numeric Discord user IDs; got {item!r}") from exc
+        if value < 1:
+            raise RuntimeError(f"OWNER_IDS must contain positive Discord user IDs; got {value}")
+        values.append(value)
+    if not values:
+        raise RuntimeError("OWNER_IDS must contain at least one Discord user ID")
+    return frozenset(values)
+
+
 @dataclass(frozen=True)
 class Settings:
     token: str = os.getenv("DISCORD_TOKEN", "")
@@ -122,6 +142,7 @@ class Settings:
     mongo_uri: str = os.getenv("MONGODB_BACKUP_URI", os.getenv("MONGODB_URI", "")).strip()
     mongo_database: str = os.getenv("MONGODB_BACKUP_DATABASE", os.getenv("MONGODB_DATABASE", "zyven_dev")).strip()
     owner_id: int = _env_int("OWNER_ID", 1498085359458717747, minimum=1)
+    owner_ids: frozenset[int] = _env_owner_ids()
     application_id: int = _env_int("APPLICATION_ID", 1542942496462737599, minimum=1)
     owner_log_webhook_url: str = os.getenv("OWNER_LOG_WEBHOOK_URL", "").strip()
     owner_alert_p95_ms: int = _env_int("OWNER_ALERT_P95_MS", 1000, minimum=100, maximum=60000)
@@ -140,6 +161,12 @@ class Settings:
     lavalink_node_name: str = os.getenv("LAVALINK_NODE_NAME", "Zyven")
     prefix: str = os.getenv("COMMAND_PREFIX", "?")
     sync_guild_id: int | None = (_env_int("SYNC_GUILD_ID", 0, minimum=0) or None)
+
+    def is_owner(self, user_id: int | None) -> bool:
+        try:
+            return int(user_id or 0) in self.owner_ids
+        except (TypeError, ValueError, OverflowError):
+            return False
 
     def __post_init__(self):
         if self.lavalink_auth and self.lavalink_host and not self.lavalink_secure and not _lavalink_loopback(self.lavalink_host):

@@ -215,6 +215,7 @@ class ZyvenBot(commands.Bot):
         )
         self.remove_command("help")
         self.db = Database(settings.sqlite_path, settings.mongo_uri, settings.mongo_database)
+        self.owner_ids = settings.owner_ids
         self.started_at = time.monotonic()
         self._emoji_sync_started = False
         self._noprefix_users: dict[int, float | None] = {}
@@ -248,7 +249,7 @@ class ZyvenBot(commands.Bot):
     async def has_noprefix_access(self, user_id: int) -> bool:
         # The configured bot owner is always trusted to run commands without
         # a prefix; other users must have an active `np add` grant.
-        if user_id == settings.owner_id:
+        if settings.is_owner(user_id):
             return True
         now = time.monotonic()
         if now >= self._noprefix_cache_expires:
@@ -504,7 +505,7 @@ class ZyvenBot(commands.Bot):
 
     async def owner_guard(self, user_id: int, guild_id: int | None = None):
         """Check owner restrictions, using cached policy but denying unknown policy."""
-        if int(user_id) == settings.owner_id:
+        if settings.is_owner(user_id):
             return None
         key = (int(user_id), int(guild_id or 0))
         now = time.monotonic()
@@ -712,7 +713,7 @@ class ZyvenBot(commands.Bot):
             ignored_channels = {int(value) for value in config.get("channels", [])}
         except (TypeError, ValueError):
             bypass_users, extraowners, ignored_users, ignored_channels = set(), set(), set(), set()
-        trusted = {ctx.guild.owner_id, self.owner_id, *bypass_users, *extraowners}
+        trusted = {ctx.guild.owner_id, *self.owner_ids, *bypass_users, *extraowners}
         root = ctx.command.root_parent or ctx.command
         if ctx.author.id in trusted or root.name.casefold() in {"ignore", "extraowner", "extraowners"}:
             return False
@@ -770,7 +771,7 @@ class ZyvenBot(commands.Bot):
             return False
         if interaction.guild is None or interaction.command is None:
             return True
-        if interaction.user.id == self.owner_id:
+        if settings.is_owner(interaction.user.id):
             return True
         command = interaction.command
         root = command
@@ -796,7 +797,7 @@ class ZyvenBot(commands.Bot):
             ignored_channels = {int(value) for value in config.get("channels", [])}
         except (TypeError, ValueError):
             bypass_users, extraowners, ignored_users, ignored_channels = set(), set(), set(), set()
-        if interaction.user.id in {interaction.guild.owner_id, self.owner_id, *bypass_users, *extraowners}:
+        if interaction.user.id in {interaction.guild.owner_id, *self.owner_ids, *bypass_users, *extraowners}:
             return True
         ignored_commands = {str(value).casefold() for value in config.get("commands", [])}
         command_names = {command.qualified_name.casefold(), root.name.casefold()}
@@ -963,7 +964,7 @@ class ZyvenBot(commands.Bot):
         root = command.root_parent or command if command else None
         if command and command.hidden and isinstance(error, commands.CheckFailure):
             return
-        if root and root.name in {"ownerhelp", "noprefix"} and ctx.author.id != self.owner_id:
+        if root and root.name in {"ownerhelp", "noprefix"} and not settings.is_owner(ctx.author.id):
             return
         if isinstance(error, commands.CommandNotFound):
             # Ignore ordinary chat that happens to start with the configured prefix.

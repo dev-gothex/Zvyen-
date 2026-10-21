@@ -25,7 +25,7 @@ class Configuration(commands.Cog):
     @commands.command(name="config")
     @commands.guild_only()
     async def prefix_config(self, ctx: commands.Context):
-        if ctx.author.id != settings.owner_id and not ctx.author.guild_permissions.manage_guild:
+        if not settings.is_owner(ctx.author.id) and not ctx.author.guild_permissions.manage_guild:
             await ctx.reply(view=component_card(panel(f"{icon('warning')} Permission Required", "You need **Manage Server** to use this configuration panel.", color=0xED4245)), mention_author=False)
             return
         embed = panel(f"{icon('security')} Zyven Configuration", "Select a category below to configure your server.")

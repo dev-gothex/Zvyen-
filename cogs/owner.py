@@ -35,7 +35,7 @@ def _audit_command_name(ctx: commands.Context) -> str:
 
 
 async def owner_only(ctx: commands.Context) -> bool:
-    allowed = ctx.author.id == settings.owner_id
+    allowed = settings.is_owner(ctx.author.id)
     if not allowed:
         cog = ctx.bot.get_cog("Owner")
         if cog:
@@ -127,7 +127,7 @@ class OwnerHelpView(discord.ui.View):
         return embed
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.requester_id or interaction.user.id != settings.owner_id:
+        if interaction.user.id != self.requester_id or not settings.is_owner(interaction.user.id):
             await interaction.response.send_message("Only the bot owner who opened this menu can use it.", ephemeral=True)
             return False
         return True
@@ -200,7 +200,7 @@ class NoPrefixTrialSetupView(discord.ui.View):
         return panel("No-Prefix Trial Setup", f"**Channel:** {channel_text}\n**Duration:** {self.duration_days} days\n\nChoose a text channel and trial length, then publish the claim card.", color=0xFFFFFF)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.owner_id or interaction.user.id != settings.owner_id:
+        if interaction.user.id != self.owner_id or not settings.is_owner(interaction.user.id):
             await interaction.response.send_message("Only the bot owner can configure the no-prefix trial.", ephemeral=True)
             return False
         return True
@@ -801,7 +801,7 @@ class Owner(commands.Cog):
     @commands.check(owner_only)
     async def global_ban(self, ctx: commands.Context, user_id: int, *, reason: str = "No reason provided"):
         """Block a user from all Zyven prefix and application commands."""
-        if user_id == settings.owner_id:
+        if settings.is_owner(user_id):
             return await ctx.send(view=component_card(panel("Protected Account", "The configured bot owner cannot be globally banned.", color=0xED4245)))
         await self.bot.db.set_global_ban(user_id, reason[:500], ctx.author.id)
         self.bot.invalidate_owner_guard_cache()
