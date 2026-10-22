@@ -14,6 +14,7 @@ import wavelink
 
 from .database import Database
 from utils.backups import send_source_backup
+from utils import permit as permit_utils
 from utils.emojis import icon, sync_application_emojis
 from .settings import settings
 from utils.ui import ComponentCard, bind_component_owner, component_card, notice_panel, panel, send_card, schedule_access_denied_delete
@@ -245,6 +246,11 @@ class ZyvenBot(commands.Bot):
         self._shutdown_started = False
         self._presence_task: asyncio.Task | None = None
         self.tree.on_error = self.on_app_command_error
+        # Role permits (cogs/permit.py): publish a member's permitted permissions
+        # while their command runs and enforce owner-role immunity.
+        permit_utils.install_permission_patch()
+        self.tree.interaction_check = self._permit_interaction_check
+        self.before_invoke(self._permit_before_invoke)
 
     async def has_noprefix_access(self, user_id: int) -> bool:
         # The configured bot owner is always trusted to run commands without
@@ -695,6 +701,73 @@ class ZyvenBot(commands.Bot):
             )
         except discord.HTTPException:
             log.warning("Could not deliver database unavailable notice for command %s", message.id)
+
+    async def invoke(self, ctx: commands.Context):
+        """Run a prefix command with the invoker's role permits applied."""
+        token = None
+        if ctx.guild is not None and ctx.command is not None and isinstance(ctx.author, discord.Member):
+            config = await permit_utils.load_config(self, ctx.guild.id)
+            token = permit_utils.activate(ctx.guild.id, ctx.author.id, permit_utils.member_grants(config, ctx.author, (ctx.command.root_parent or ctx.command).name))
+        try:
+            await super().invoke(ctx)
+        finally:
+            permit_utils.deactivate(token)
+
+    def _owner_immunity_applies(self, guild: discord.Guild, user_id: int) -> bool:
+        return user_id != guild.owner_id and not settings.is_owner(user_id)
+
+    @staticmethod
+    def _owner_immunity_text(blocked: list[discord.Member]) -> str:
+        names = ", ".join(member.mention for member in blocked[:5])
+        return f"{names} {'has' if len(blocked) == 1 else 'have'} an owner role and cannot be targeted by this command."
+
+    async def _permit_before_invoke(self, ctx: commands.Context):
+        """Block moderation commands aimed at members that hold a permit owner role."""
+        if ctx.guild is None or ctx.command is None:
+            return
+        if not permit_utils.is_immune_command(ctx.command.qualified_name) or not self._owner_immunity_applies(ctx.guild, ctx.author.id):
+            return
+        config = await permit_utils.load_config(self, ctx.guild.id)
+        if not config.owner_roles:
+            return
+        ids = permit_utils.target_ids([*ctx.args, *ctx.kwargs.values()])
+        blocked = permit_utils.immune_targets(config, ctx.guild, ctx.author.id, ids)
+        if not blocked:
+            return
+        ctx._suppress_command_error_response = True
+        try:
+            await ctx.send(
+                view=component_card(notice_panel(self._owner_immunity_text(blocked), title="Owner Immunity")),
+                allowed_mentions=discord.AllowedMentions.none(),
+                delete_after=5,
+            )
+        except (discord.Forbidden, discord.HTTPException):
+            pass
+        raise commands.CheckFailure("Target holds a permit owner role.")
+
+    async def _permit_interaction_check(self, interaction: discord.Interaction) -> bool:
+        """Tree-wide check for slash commands: apply role permits and owner immunity."""
+        user = interaction.user
+        if interaction.guild is None or not isinstance(user, discord.Member):
+            return True
+        config = await permit_utils.load_config(self, interaction.guild.id)
+        # Task-local: the value lives only for this interaction's command task.
+        name, ids = permit_utils.slash_command_path(interaction.data or {})
+        permit_utils.activate(interaction.guild.id, user.id, permit_utils.member_grants(config, user, name.split(" ")[0]))
+        if not config.owner_roles or not self._owner_immunity_applies(interaction.guild, user.id):
+            return True
+        if not permit_utils.is_immune_command(name):
+            return True
+        blocked = permit_utils.immune_targets(config, interaction.guild, user.id, ids)
+        if not blocked:
+            return True
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                view=component_card(notice_panel(self._owner_immunity_text(blocked), title="Owner Immunity")),
+                ephemeral=True,
+                allowed_mentions=discord.AllowedMentions.none(),
+            )
+        return False
 
     async def _is_ignored_prefix_command(self, ctx: commands.Context) -> bool:
         """Apply server ignore lists before dispatching a recognized prefix command."""
@@ -1148,7 +1221,7 @@ class ZyvenBot(commands.Bot):
         else:
             log.warning("Lavalink is not configured; set LAVALINK_HOST and LAVALINK_AUTH in the host panel. Music is disabled until then.")
             await self._startup_stage("Lavalink music node", 34, "Music is not configured; remaining features continue", state="warning")
-        extensions = ("cogs.configuration", "cogs.security", "cogs.moderation", "cogs.moderation_extra", "cogs.jail", "cogs.automod", "cogs.antibot", "cogs.members", "cogs.voice", "cogs.leaderboard", "cogs.information", "cogs.utility", "cogs.fun", "cogs.music", "cogs.giveaways", "cogs.afk", "cogs.autoresponder", "cogs.autoreact", "cogs.customrole", "cogs.reactionroles", "cogs.tickets", "cogs.leveling", "cogs.helpdesk", "cogs.owner", "cogs.eventlogs")
+        extensions = ("cogs.configuration", "cogs.security", "cogs.moderation", "cogs.moderation_extra", "cogs.jail", "cogs.automod", "cogs.antibot", "cogs.members", "cogs.voice", "cogs.leaderboard", "cogs.information", "cogs.utility", "cogs.fun", "cogs.music", "cogs.giveaways", "cogs.afk", "cogs.autoresponder", "cogs.autoreact", "cogs.customrole", "cogs.reactionroles", "cogs.tickets", "cogs.leveling", "cogs.permit", "cogs.helpdesk", "cogs.owner", "cogs.eventlogs")
         await self._startup_stage("Command modules and events", 40, f"Loading {len(extensions)} feature modules")
         for extension in extensions:
             await self.load_extension(extension)
