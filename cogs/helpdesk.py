@@ -303,8 +303,7 @@ COMMAND_CATEGORY = {
     # Automations help category by its root command name.
     "autorole": "automations",
     "setup": "customrole",
-    "extraowner": "permit", "extraowners": "permit",
-    "ignore": "permit",
+    "permit": "permit",
     "vanityroles": "vanityroles",
     "tagroles": "vanityroles",
     "reactionrole": "reactionroles", "reactionroles": "reactionroles",
@@ -362,6 +361,16 @@ COMMAND_CATEGORY = {
     "voiceunlock": "voice", "voicekick": "voice", "voicepermit": "voice",
     "voicedeny": "voice", "setwelcome": "welcomer", "greet": "welcomer",
 }
+
+
+# Permit module commands as shown in the help menu (name, description).
+PERMIT_HELP_ENTRIES = (
+    ("permit @role", "Add or remove command permissions for a role. This does not give the role Discord permissions; it only unlocks the matching bot commands."),
+    ("permit reset @role", "Reset the permissions of a role."),
+    ("permit reset all", "Reset the permissions of all roles."),
+    ("permit owner @role", "Set a role as owner role (owner role is immune from commands)."),
+)
+PERMIT_HELP_NAMES = tuple(name for name, _ in PERMIT_HELP_ENTRIES)
 
 
 def commands_for_category(bot, key: str) -> tuple[str, ...]:
@@ -543,11 +552,8 @@ def category_list_embed(bot, key: str, requester_name: str = "Member"):
             media_text = ", ".join(f"**`{name}`**" for name in media_names) or "Commands are not available yet."
             description = f"**{icon(emoji_key)} {label}**\n\n**__Utility__**\n{utility_text}\n\n**__Media__**\n{media_text}"
         elif key == "permit":
-            extraowner_names = [name for name in names if name.startswith("extraowner ")]
-            ignore_names = [name for name in names if name.startswith("ignore ") and not name.endswith(" help")]
-            permit_text = ", ".join(f"**`{name}`**" for name in extraowner_names) or "Commands are not available yet."
-            ignore_text = ", ".join(f"**`{name}`**" for name in ignore_names) or "Commands are not available yet."
-            description = f"**{icon(emoji_key)} {label}**\n\n**__Permit__**\n{permit_text}\n\n**__Ignore__**\n{ignore_text}"
+            permit_text = ", ".join(f"**`{name}`**" for name in PERMIT_HELP_NAMES) if bot.get_command("permit") else "Commands are not available yet."
+            description = f"**{icon(emoji_key)} {label}**\n\n**__Permit__**\n{permit_text}"
         elif key == "leaderboard":
             sections = (
                 ("Voice Leaderboard", ("voicelb on", "voicelb off", "vcstats", "voiceleaderboard", "dailyvoice", "weeklyvoice", "addvctime", "reducevctime", "clearvoice", "resetmyvoice")),
@@ -903,6 +909,18 @@ class Helpdesk(commands.Cog):
                 view = HelpPagesView(
                     requester_id=ctx.author.id,
                     title="Zyven Music Group",
+                    entries=entries,
+                    page_size=5,
+                    guild_id=ctx.guild.id if ctx.guild else None,
+                    prefix=prefix,
+                ).set_requester(ctx.author.display_name)
+                await ctx.send(view=component_card(view.make_embed(), view), allowed_mentions=discord.AllowedMentions.none())
+                return
+            if key == "permit":
+                entries = [(f"{prefix}{name}", description) for name, description in PERMIT_HELP_ENTRIES]
+                view = HelpPagesView(
+                    requester_id=ctx.author.id,
+                    title="Zyven Permit Group",
                     entries=entries,
                     page_size=5,
                     guild_id=ctx.guild.id if ctx.guild else None,
